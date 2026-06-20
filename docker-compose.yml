@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: accounting_saas_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: saas_user
+      POSTGRES_PASSWORD: saas_password
+      POSTGRES_DB: accounting_saas
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U saas_user -d accounting_saas']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: accounting_saas_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://saas_user:saas_password@db:5432/accounting_saas?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: '900'
+      JWT_REFRESH_TTL: '604800'
+      JWT_ISSUER: accounting-saas
+      JWT_AUDIENCE: accounting-saas-clients
+      BCRYPT_SALT_ROUNDS: '12'
+      COOKIE_SECURE: 'true'
+    ports:
+      - '3000:3000'
+    command: sh -c "npx prisma migrate deploy && npm run start"
+
+volumes:
+  postgres_data:

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"/Users/nurmuhammad/Desktop/multi-branch-accounting-saas/src/app/api/debts/[id]\")",
+      "Bash(ls /usr/local/bin/postgres /opt/homebrew/bin/postgres /usr/bin/postgres 2>&1)",
+      "Read(//usr/local/bin/**)",
+      "Bash(cat /tmp/nextdev.log 2>&1 | tail -30)",
+      "Read(//private/tmp/**)",
+      "Bash(npx tsc *)"
+    ],
+    "additionalDirectories": [
+      "/Users/nurmuhammad/Desktop/multi-branch-accounting-saas/src/app/api/debts/[id]"
+    ]
+  }
+}

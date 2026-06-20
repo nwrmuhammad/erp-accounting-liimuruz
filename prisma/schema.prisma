@@ -1,0 +1,444 @@
+// Multi-Branch Accounting & Analytics SaaS — Database Schema
+// PART 1 + PART 2: Auth, RBAC, Branches, Audit, Notifications,
+//                   Products, Sales, Debts, Inventory, Expenses
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum RoleType {
+  SUPER_ADMIN
+  BOSS
+  EMPLOYEE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum PaymentType {
+  CASH_UZS
+  CASH_USD
+  ONLINE
+}
+
+enum OnlineReceiver {
+  ALI
+  BILOL
+  JAMOL
+  ABDULBOSIT
+}
+
+enum CurrencyType {
+  UZS
+  USD
+}
+
+enum InventoryMovementType {
+  INCOMING
+  OUTGOING
+}
+
+enum SaleStatus {
+  OCHIQ
+  YOPILDI
+  POCHTADA
+}
+
+
+// ---------------------------------------------------------------------------
+// RBAC: Role, Permission, RolePermission
+// ---------------------------------------------------------------------------
+
+model Role {
+  id          String           @id @default(cuid())
+  type        RoleType         @unique
+  name        String
+  description String?
+  isSystem    Boolean          @default(true)
+  permissions RolePermission[]
+  users       User[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String
+  description String?
+  resource    String
+  action      String
+  roles       RolePermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([resource])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// ---------------------------------------------------------------------------
+// Branch
+// ---------------------------------------------------------------------------
+
+model Branch {
+  id                 String              @id @default(cuid())
+  name               String
+  code               String              @unique
+  region             String
+  city               String?
+  address            String?
+  phone              String?
+  isActive           Boolean             @default(true)
+  users              User[]
+  auditLogs          AuditLog[]
+  productCategories  ProductCategory[]
+  products           Product[]
+  sales              Sale[]
+  inventoryMovements InventoryMovement[]
+  expenseCategories  ExpenseCategory[]
+  expenses           Expense[]
+  kirims             Kirim[]
+  chiqims            Chiqim[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([region])
+  @@map("branches")
+}
+
+// ---------------------------------------------------------------------------
+// User
+// ---------------------------------------------------------------------------
+
+model User {
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  phone              String?
+  status             UserStatus          @default(ACTIVE)
+  roleId             String
+  role               Role                @relation(fields: [roleId], references: [id])
+  branchId           String?
+  branch             Branch?             @relation(fields: [branchId], references: [id])
+  lastLoginAt        DateTime?
+  sessions           Session[]
+  refreshTokens      RefreshToken[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  sales              Sale[]              @relation("SaleCreatedBy")
+  inventoryMovements InventoryMovement[] @relation("InventoryMovementCreatedBy")
+  expenses           Expense[]           @relation("ExpensePaidBy")
+  kirims             Kirim[]             @relation("KirimCreatedBy")
+  chiqims            Chiqim[]            @relation("ChiqimCreatedBy")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([roleId])
+  @@index([branchId])
+  @@index([status])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Session & RefreshToken
+// ---------------------------------------------------------------------------
+
+model Session {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent     String?
+  ipAddress     String?
+  refreshTokens RefreshToken[]
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime       @default(now())
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id           String    @id @default(cuid())
+  tokenHash    String    @unique
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId    String?
+  session      Session?  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([sessionId])
+  @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// AuditLog
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Notification
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String?
+  data      Json?
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// Products
+// ---------------------------------------------------------------------------
+
+model ProductCategory {
+  id        String    @id @default(cuid())
+  name      String
+  branchId  String
+  branch    Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([name, branchId])
+  @@index([branchId])
+  @@map("product_categories")
+}
+
+model Product {
+  id                 String              @id @default(cuid())
+  name               String
+  sku                String
+  description        String?
+  unit               String              @default("pcs")
+  costPrice          Decimal             @db.Decimal(18, 2)
+  sellingPrice       Decimal             @db.Decimal(18, 2)
+  stock              Int                 @default(0)
+  branchId           String
+  branch             Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  categoryId         String?
+  category           ProductCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  isActive           Boolean             @default(true)
+
+  inventoryMovements InventoryMovement[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@unique([sku, branchId])
+  @@index([branchId])
+  @@index([categoryId])
+  @@map("products")
+}
+
+// ---------------------------------------------------------------------------
+// Sales
+// ---------------------------------------------------------------------------
+
+model Sale {
+  id             String          @id @default(cuid())
+  saleNumber     String          @unique
+  branchId       String
+  branch         Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User            @relation("SaleCreatedBy", fields: [createdById], references: [id])
+  productName    String?
+  quantity       Int?
+  paymentType    PaymentType
+  onlineReceiver OnlineReceiver?
+  totalAmount    Decimal         @db.Decimal(18, 2)
+  currency       CurrencyType    @default(UZS)
+  saleDate       DateTime        @default(now())
+  status         SaleStatus      @default(OCHIQ)
+  puliOlindi     Boolean         @default(false)
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([branchId])
+  @@index([createdById])
+  @@index([paymentType])
+  @@index([status])
+  @@index([saleDate])
+  @@index([createdAt])
+  @@map("sales")
+}
+
+
+// ---------------------------------------------------------------------------
+// Inventory
+// ---------------------------------------------------------------------------
+
+model InventoryMovement {
+  id          String                @id @default(cuid())
+  branchId    String
+  branch      Branch                @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product               @relation(fields: [productId], references: [id])
+  type        InventoryMovementType
+  quantity    Int
+  unitCost    Decimal?              @db.Decimal(18, 2)
+  totalCost   Decimal?              @db.Decimal(18, 2)
+  reason      String?
+  referenceId String?
+  createdById String
+  createdBy   User                  @relation("InventoryMovementCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime              @default(now())
+
+  @@index([branchId])
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("inventory_movements")
+}
+
+// ---------------------------------------------------------------------------
+// Expenses
+// ---------------------------------------------------------------------------
+
+model ExpenseCategory {
+  id        String    @id @default(cuid())
+  name      String
+  branchId  String
+  branch    Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  expenses  Expense[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([name, branchId])
+  @@index([branchId])
+  @@map("expense_categories")
+}
+
+model Expense {
+  id             String          @id @default(cuid())
+  branchId       String
+  branch         Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  categoryId     String?
+  category       ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  description    String
+  amount         Decimal         @db.Decimal(18, 2)
+  currency       CurrencyType
+  exchangeRate   Decimal?        @db.Decimal(18, 4)
+  paymentType    PaymentType
+  onlineReceiver OnlineReceiver?
+  paidById       String
+  paidBy         User            @relation("ExpensePaidBy", fields: [paidById], references: [id])
+  receiptUrl     String?
+  notes          String?
+  expenseDate    DateTime        @default(now())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([branchId])
+  @@index([categoryId])
+  @@index([currency])
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+// ---------------------------------------------------------------------------
+// Kirim (Incoming)
+// ---------------------------------------------------------------------------
+
+model Kirim {
+  id          String   @id @default(cuid())
+  productName String?
+  quantity    Int
+  kirimDate   DateTime @default(now())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation("KirimCreatedBy", fields: [createdById], references: [id])
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([kirimDate])
+  @@map("kirims")
+}
+
+// ---------------------------------------------------------------------------
+// Chiqim (Outgoing)
+// ---------------------------------------------------------------------------
+
+model Chiqim {
+  id          String   @id @default(cuid())
+  productName String?
+  recipient   String
+  responsible String
+  chiqimDate  DateTime @default(now())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation("ChiqimCreatedBy", fields: [createdById], references: [id])
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([chiqimDate])
+  @@map("chiqims")
+}
