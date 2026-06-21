@@ -1,42 +1,97 @@
-# Multi-Branch Accounting & Analytics SaaS
+# ERP Accounting — liimuruz
 
-Production-ready full-stack accounting platform with multi-branch support, RBAC, real-time analytics, and complete frontend. Built with Next.js 15, TypeScript, PostgreSQL, Prisma 6, TailwindCSS, and Shadcn/UI following Clean Architecture.
+Multi-branch accounting SaaS. Next.js 15, TypeScript, PostgreSQL, Prisma 6, TailwindCSS.
 
 ---
 
-## Quick Start
+## Talablar
+
+- Node.js 18+
+- PostgreSQL 14+
+- npm
+
+---
+
+## O'rnatish va ishga tushirish
+
+### 1. Loyihani yuklab oling
 
 ```bash
-cp .env.example .env          # DATABASE_URL + JWT secrets (>=32 chars)
-npm install
-npm run prisma:generate
-npm run prisma:migrate         # runs all migrations
-npm run db:seed                # seeds branches, roles, users, sample data
-npm run dev                    # http://localhost:3000
+git clone https://github.com/nwrmuhammad/erp-accounting-liimuruz.git
+cd erp-accounting-liimuruz
 ```
 
-> **PostgreSQL (without Docker):** Install via Homebrew, create `saas_db` and user `saas_user`, then run `ALTER USER saas_user CREATEDB;` for Prisma shadow database support.
+### 2. Paketlarni o'rnating
+
+```bash
+npm install
+```
+
+### 3. PostgreSQL bazasini yarating
+
+```bash
+# PostgreSQL ga kiring
+psql -U postgres
+
+# Baza va foydalanuvchi yarating
+CREATE DATABASE accounting_saas;
+CREATE USER saas_user WITH PASSWORD 'saas_password';
+GRANT ALL PRIVILEGES ON DATABASE accounting_saas TO saas_user;
+ALTER USER saas_user CREATEDB;
+\q
+```
+
+### 4. `.env` faylini sozlang
+
+```bash
+cp .env.example .env
+```
+
+`.env` faylini oching va quyidagilarni to'ldiring:
+
+```env
+DATABASE_URL="postgresql://saas_user:saas_password@localhost:5432/accounting_saas"
+
+JWT_ACCESS_SECRET="kamida-32-belgili-maxfiy-kalit-bu-yerga"
+JWT_REFRESH_SECRET="boshqa-kamida-32-belgili-maxfiy-kalit"
+JWT_ACCESS_EXPIRES_IN="15m"
+JWT_REFRESH_EXPIRES_IN="7d"
+
+NEXTAUTH_URL="http://localhost:3000"
+NODE_ENV="development"
+```
+
+> **Muhim:** JWT secret kalitlar kamida 32 belgi bo'lishi kerak.
+
+### 5. Bazani migratsiya qiling
+
+```bash
+npm run prisma:generate
+npm run prisma:migrate
+```
+
+### 6. Boshlang'ich ma'lumotlarni yuklang (seed)
+
+```bash
+npm run db:seed
+```
+
+Bu quyidagilarni yaratadi:
+- 5 ta filial (Toshkent Chilonzor, Toshkent Solnechniy, Buxoro, Samarqand, Termiz)
+- Barcha rollar va ruxsatnomalar
+- Admin, Boss, Employee hisoblar
+
+### 7. Dasturni ishga tushiring
+
+```bash
+npm run dev
+```
+
+Brauzerda oching: **http://localhost:3000**
 
 ---
 
-## Frontend Pages
-
-| URL | Sahifa / Page |
-|-----|---------------|
-| `/login` | Kirish (Login) |
-| `/` | Dashboard — Analytics (sotuvlar, qarzlar, inventar, xarajatlar) |
-| `/products` | Mahsulotlar — CRUD, qidirish, sahifalash |
-| `/products/categories` | Mahsulot kategoriyalari — CRUD |
-| `/sales` | Sotuvlar ro'yxati — ko'rish, o'chirish |
-| `/sales/new` | Yangi sotuv — line items, to'lov turi |
-| `/debts` | Qarzlar — yaratish, to'lov qo'shish, status filtri |
-| `/inventory` | Inventar harakatlari — kirim/chiqim qo'shish |
-| `/expenses` | Xarajatlar — CRUD, multi-valyuta (UZS/USD) |
-| `/expenses/categories` | Xarajat kategoriyalari — CRUD |
-| `/users` | Foydalanuvchilar — CRUD (BOSS va SUPER_ADMIN) |
-| `/branches` | Filiallar — CRUD (faqat SUPER_ADMIN) |
-
-**Kirish ma'lumotlari (Default Accounts):**
+## Kirish ma'lumotlari
 
 | Rol | Email | Parol |
 |-----|-------|-------|
@@ -46,144 +101,64 @@ npm run dev                    # http://localhost:3000
 
 ---
 
-## Backend API Endpoints
+## Sahifalar
 
-### Auth
-| Method | URL | Description |
-|--------|-----|-------------|
-| POST | `/api/auth/login` | Login, cookie o'rnatadi |
-| POST | `/api/auth/logout` | Logout, cookieni tozalaydi |
-| POST | `/api/auth/refresh` | Access token yangilash |
-| GET | `/api/auth/me` | Joriy foydalanuvchi ma'lumoti |
-
-### Products
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/api/products` | Ro'yxat (search, page, pageSize, categoryId, isActive) |
-| POST | `/api/products` | Yangi mahsulot |
-| GET | `/api/products/:id` | Bitta mahsulot |
-| PATCH | `/api/products/:id` | Tahrirlash |
-| DELETE | `/api/products/:id` | O'chirish |
-| GET | `/api/products/categories` | Kategoriyalar ro'yxati |
-| POST | `/api/products/categories` | Yangi kategoriya |
-| PATCH | `/api/products/categories/:id` | Kategoriya tahrirlash |
-| DELETE | `/api/products/categories/:id` | Kategoriya o'chirish |
-
-### Sales
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/api/sales` | Ro'yxat (search, paymentType, dateFrom, dateTo) |
-| POST | `/api/sales` | Yangi sotuv (stokni avtomatik kamaytiradi) |
-| GET | `/api/sales/:id` | Bitta sotuv (items bilan) |
-| DELETE | `/api/sales/:id` | O'chirish (stokni qaytaradi) |
-
-### Debts
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/api/debts` | Ro'yxat (search, status) |
-| POST | `/api/debts` | Yangi qarz |
-| GET | `/api/debts/:id` | Bitta qarz |
-| PATCH | `/api/debts/:id` | Tahrirlash |
-| DELETE | `/api/debts/:id` | O'chirish |
-| POST | `/api/debts/:id/payments` | To'lov qo'shish |
-| GET | `/api/debts/:id/payments` | To'lovlar ro'yxati |
-
-### Inventory
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/api/inventory` | Harakatlar ro'yxati (type, productId) |
-| POST | `/api/inventory` | Yangi harakat (INCOMING/OUTGOING) |
-| GET | `/api/inventory/summary` | Stok xulosasi |
-
-### Expenses
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/api/expenses` | Ro'yxat (search, categoryId, currency) |
-| POST | `/api/expenses` | Yangi xarajat |
-| GET | `/api/expenses/:id` | Bitta xarajat |
-| PATCH | `/api/expenses/:id` | Tahrirlash |
-| DELETE | `/api/expenses/:id` | O'chirish |
-| GET | `/api/expenses/categories` | Kategoriyalar |
-| POST | `/api/expenses/categories` | Yangi kategoriya |
-| PATCH | `/api/expenses/categories/:id` | Kategoriya tahrirlash |
-| DELETE | `/api/expenses/categories/:id` | Kategoriya o'chirish |
-
-### Analytics
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/api/analytics` | To'liq hisobot (dateFrom, dateTo, branchId) |
-
-### Users & Branches
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET/POST | `/api/users` | Foydalanuvchilar |
-| GET/PATCH | `/api/users/:id` | Bitta foydalanuvchi |
-| GET/POST | `/api/branches` | Filiallar |
-| GET/PATCH/DELETE | `/api/branches/:id` | Bitta filial |
+| URL | Nomi |
+|-----|------|
+| `/` | Dashboard — grafik va statistika |
+| `/sales` | Sotuvlar — kunlik, statusi bilan |
+| `/hisobot` | Hisobot — barcha vaqt bo'yicha |
+| `/expenses` | Xarajatlar |
+| `/kirim` | Kirim (kassaga tushgan pul) |
+| `/chiqim` | Chiqim (kassadan chiqqan pul) |
+| `/products` | Mahsulotlar |
+| `/inventory` | Inventar harakatlari |
+| `/users` | Foydalanuvchilar |
+| `/branches` | Filiallar (faqat SUPER_ADMIN) |
 
 ---
 
-## Tech Stack
+## Rollar
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 15 (App Router) |
-| Language | TypeScript (strict) |
-| Database | PostgreSQL + Prisma 6 |
-| Auth | JWT (HS256) + HttpOnly cookies |
-| Styling | TailwindCSS + Shadcn/UI |
-| Architecture | Clean Architecture (domain → application → infrastructure → presentation) |
+| Rol | Imkoniyatlar |
+|-----|-------------|
+| **SUPER_ADMIN** | Barcha filiallar, barcha ma'lumotlar, foydalanuvchi boshqaruvi |
+| **BOSS** | Faqat o'z filiali, hisobot ko'rish |
+| **EMPLOYEE** | Sotuv qo'shish, xarajat kiritish, hisobot ko'rish |
+
+---
+
+## Sotuvlar qoidasi
+
+- Sotuvlar **faqat bugungi sana** bo'yicha ko'rinadi (23:59 gacha)
+- **POCHTADA** statusidagi (puli kutilayotgan) sotuvlar sana o'tsa ham ko'rinadi
+- Pul olingandan so'ng "Pul olindi" tick qo'yilsa, sotuv Hisobotga o'tadi
+- **YOPILDI** statusidagi sotuvlar bugungi kunda ko'rinadi, 23:59 dan keyin Hisobotga o'tadi
+
+---
+
+## Texnologiyalar
+
+| Qism | Texnologiya |
+|------|-------------|
+| Framework | Next.js 15 App Router |
+| Til | TypeScript (strict) |
+| Baza | PostgreSQL + Prisma 6 |
+| Auth | JWT + HttpOnly cookie |
+| UI | TailwindCSS |
 | Validation | Zod |
-| RBAC | Permission-based (SUPER_ADMIN, BOSS, EMPLOYEE) |
 
 ---
 
-## Architecture
+## Muammo chiqsa
 
+```bash
+# Baza ulanishini tekshiring
+npx prisma db push
+
+# Migratsiyalarni qayta ishga tushiring
+npx prisma migrate reset
+
+# Loglarni ko'ring
+npm run dev
 ```
-src/
-├── app/
-│   ├── (auth)/login/          # Login page
-│   ├── (dashboard)/           # All protected pages
-│   │   ├── layout.tsx         # Sidebar + AuthProvider
-│   │   ├── page.tsx           # Dashboard/Analytics
-│   │   ├── products/          # Products + categories
-│   │   ├── sales/             # Sales list + new sale
-│   │   ├── debts/             # Debts + payments
-│   │   ├── inventory/         # Inventory movements
-│   │   ├── expenses/          # Expenses + categories
-│   │   ├── users/             # User management
-│   │   └── branches/          # Branch management
-│   └── api/                   # All API routes
-├── core/                      # Errors, types, permissions
-├── domain/                    # Repository interfaces
-├── application/services/      # Business logic
-├── infrastructure/            # Prisma repositories, container
-├── presentation/              # Validators, middleware
-├── components/                # UI components
-├── context/                   # Auth context
-└── lib/                       # API client, JWT, utils
-```
-
----
-
-## Key Business Rules
-
-- **Branch isolation:** EMPLOYEE faqat o'z filiali ma'lumotlarini ko'radi. BOSS o'z filiali. SUPER_ADMIN hamma filial.
-- **Sale → Stock:** Sotuv yaratilganda stok avtomatik kamayadi. Sotuv o'chirilganda stok qaytariladi.
-- **Debt status:** ACTIVE → PARTIAL → PAID (to'lovlar qo'shilganda avtomatik yangilanadi).
-- **Online payment:** `paymentType: ONLINE` bo'lsa `onlineReceiver` (ALI yoki BILOL) majburiy.
-- **Sale number format:** `{BRANCH_CODE}-{YYYYMMDD}-{0001}` (har kun sifirdan boshlanadi).
-- **SKU:** Har bir filialda unique (`sku + branchId` composite unique).
-- **Multi-currency:** Xarajatlar UZS va/yoki USD da kiritilishi mumkin.
-
-
-
-
----
-
-## Documentation
-- `AI_CONTEXT.md` — arxitektura, konventsiyalar va loyihani kengaytirish bo'yicha qo'llanma.
-- `SYSTEM_HANDOFF.md` — database dizayni, API referens, bajarilgan/qolgan vazifalar.
-
-
